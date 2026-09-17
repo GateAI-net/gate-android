@@ -32,7 +32,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("com.github.GateAI-net:gate-android:v1.1.0")
+    implementation("com.github.GateAI-net:gate-android:1.2.0")
 }
 ```
 
@@ -47,7 +47,6 @@ val configuration = GateAIConfiguration(
     packageName = packageName,
     signingCertSha256 = "AA:BB:CC:DD:EE:FF:...", // Your app's SHA-256 fingerprint
     cloudProjectNumber = 123456789012L, // Google Cloud project number (see Play Integrity Setup)
-    developmentToken = null, // Use for testing without Play Integrity
     logLevel = GateAIConfiguration.LogLevel.INFO
 )
 
@@ -94,25 +93,65 @@ keytool -list -v -keystore /path/to/your/release.keystore -alias your-alias
 
 Look for the `SHA256:` line and copy the colon-delimited hex string.
 
-### Development Mode (For Testing)
+### Development tokens without application code
 
-When testing on emulators or unsigned builds, use a development token to bypass Play Integrity:
+Automatic resource discovery requires Android SDK 1.2.0 or later and is included in the framework SDKs.
 
-```kotlin
-val configuration = GateAIConfiguration(
-    baseUrl = "https://yourteam.in.gate-ai.net",
-    packageName = packageName,
-    signingCertSha256 = "...",
-    developmentToken = "your-dev-token-here", // Bypass Play Integrity
-    logLevel = GateAIConfiguration.LogLevel.DEBUG
-)
-```
+Create a development token for your gate in the portal. Keep it out of application code:
 
-You can conditionally include it for debug builds:
+1. Set `GATE_AI_DEV_TOKEN` in the environment of the Gradle build, or create `gateai.local.properties` in the **Android Gradle root** (next to `settings.gradle` / `settings.gradle.kts`). For framework apps this is usually the app's `android/` directory.
+2. Add `gateai.local.properties` to your `.gitignore`. In that local file, set `GATE_AI_DEV_TOKEN=your-token` without quotes. An environment variable takes precedence, including an explicitly empty value.
+3. Add the following configuration to the **host app module's** build file, merging it into any existing `android` / `buildTypes` blocks. Do not put it in the SDK library's build file or `defaultConfig`.
+
+For Kotlin DSL (`app/build.gradle.kts`):
 
 ```kotlin
-developmentToken = if (BuildConfig.DEBUG) "dev-token" else null
+// app/build.gradle.kts — put this import at the top of the file
+import java.util.Properties
+
+// Place the following after your existing plugins { ... } block.
+val gateAILocalProperties = Properties().apply {
+    val localFile = rootProject.file("gateai.local.properties")
+    if (localFile.exists()) localFile.inputStream().use { load(it) }
+}
+val gateAIDevToken = providers.environmentVariable("GATE_AI_DEV_TOKEN")
+    .orElse(gateAILocalProperties.getProperty("GATE_AI_DEV_TOKEN", ""))
+
+android {
+    buildTypes {
+        getByName("debug") {
+            resValue("string", "gate_ai_dev_token", gateAIDevToken.get())
+        }
+    }
+}
 ```
+
+For Groovy (`app/build.gradle`):
+
+```groovy
+// app/build.gradle — place after plugins { ... }
+def gateAILocalProperties = new Properties()
+def gateAILocalFile = rootProject.file("gateai.local.properties")
+if (gateAILocalFile.exists()) {
+    gateAILocalFile.withInputStream { gateAILocalProperties.load(it) }
+}
+def gateAIDevToken = providers.environmentVariable("GATE_AI_DEV_TOKEN")
+    .orElse(gateAILocalProperties.getProperty("GATE_AI_DEV_TOKEN", ""))
+
+android {
+    buildTypes {
+        debug {
+            resValue "string", "gate_ai_dev_token", gateAIDevToken.get()
+        }
+    }
+}
+```
+
+Sync Gradle, then rebuild and reinstall the debug app whenever the token changes. Android Studio builds must see the environment variable in the IDE's process; use the ignored local file if you normally launch the IDE from the Dock or launcher.
+
+The native SDK automatically reads the `gate_ai_dev_token` string resource. No token argument is needed in Kotlin, JavaScript, or Dart. A missing or blank token uses Play Integrity. Explicit `developmentToken` configuration remains supported in debug apps and takes precedence over the resource.
+
+Keep the resource confined to the debug build type. This setup includes the token in the debug APK, but excludes it from release APKs/AABs. The SDK also ignores all development tokens in non-debuggable apps. Use the normal production Play Integrity setup for release builds; development tokens bypass attestation and should not be distributed.
 
 ## Play Integrity Setup (Production)
 
@@ -199,7 +238,7 @@ This error occurs when the Play Integrity API cannot verify your app. The improv
 
 **API_NOT_AVAILABLE**
 - Device doesn't support Play Integrity (rare)
-- Solution: Use `developmentToken` for testing on this device
+- Solution: Use the debug-only development token setup for testing on this device
 
 **APP_NOT_INSTALLED**
 - App wasn't installed from Google Play Store
@@ -224,7 +263,7 @@ This error occurs when the Play Integrity API cannot verify your app. The improv
   2. Verify SHA-256 certificate matches signing key
   3. Ensure app is published in at least Internal Testing
   4. Wait 24-48 hours after first upload for Google to process
-  5. Use `developmentToken` for testing
+  5. Use the debug-only development token setup for testing
 
 ### Package Name Mismatch
 
@@ -245,18 +284,11 @@ Ensure you're using the correct certificate:
 After first upload to Play Console:
 - Google needs to process and approve your app for Play Integrity
 - This can take **24-48 hours**
-- Use `developmentToken` for immediate testing
+- Use the debug-only development token setup for immediate testing
 
 ### Testing Without Play Store
 
-For local development and testing:
-
-```kotlin
-// Add development token to configuration
-developmentToken = "get-from-your-backend-admin"
-```
-
-This bypasses Play Integrity entirely. **Never** ship production apps with a development token.
+For local development, follow [Development tokens without application code](#development-tokens-without-application-code).
 
 ## API Reference
 
@@ -451,16 +483,7 @@ class MyApplication : Application() {
 
 ### 2. Use Development Token for Testing
 
-```kotlin
-val configuration = GateAIConfiguration(
-    // ...
-    developmentToken = if (BuildConfig.DEBUG) {
-        BuildConfig.GATE_DEV_TOKEN
-    } else {
-        null
-    }
-)
-```
+Configure the debug-only resource using the [development token setup](#development-tokens-without-application-code), then initialize your client normally.
 
 ### 3. Handle Errors Gracefully
 
