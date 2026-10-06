@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - Unreleased
 
 ### Added
+- **OpenAI Realtime voice.** `client.createRealtimeCall(offerSdp, sessionJson)` exchanges a WebRTC SDP offer for OpenAI's answer through the gate and returns the call ID. Audio flows directly between the device and OpenAI while the gate meters each model turn and applies usage limits for the whole call. Bring your own WebRTC library.
 - Automatically discover the host app's `gate_ai_dev_token` string resource in debuggable apps. Configure it through a Gradle environment variable or ignored local properties file, without passing a token in application code.
 - Skip resource lookup entirely in non-debuggable apps. Blank tokens fall back to Play Integrity; existing explicit debug tokens retain precedence.
 - Document debug-only resource generation for Kotlin DSL, Groovy, and all framework SDKs.
