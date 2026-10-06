@@ -63,7 +63,7 @@ lifecycleScope.launch {
         """.trimIndent()
         
         val response = client.performProxyRequest(
-            path = "openai/chat/completions",
+            path = "v1/chat/completions",
             method = HttpMethod.POST,
             body = requestBody.toByteArray(),
             additionalHeaders = mapOf("Content-Type" to "application/json")
@@ -309,6 +309,32 @@ suspend fun performProxyRequest(
 ): RawResponse
 ```
 
+#### `createRealtimeCall()`
+
+Starts an OpenAI Realtime WebRTC call through the gate. Your app creates the peer connection and SDP offer with a WebRTC library of your choice; the gate exchanges it for OpenAI's answer with your provider key, and audio then flows directly between the device and OpenAI while the gate meters each model turn and applies your usage limits for the whole call.
+
+```kotlin
+suspend fun GateAIClient.createRealtimeCall(
+    offerSdp: String,
+    sessionJson: String,
+    additionalHeaders: Map<String, String> = emptyMap()
+): RealtimeCallAnswer // sdp + callId ("rtc_…", how the call appears in your logs)
+```
+
+```kotlin
+val answer = client.createRealtimeCall(
+    offerSdp = offer.description,
+    sessionJson = """{"type":"realtime","model":"gpt-realtime"}""",
+    additionalHeaders = mapOf("X-App-Feature" to "voice-assistant")
+)
+peerConnection.setRemoteDescription(
+    observer,
+    SessionDescription(SessionDescription.Type.ANSWER, answer.sdp)
+)
+```
+
+A device that exhausts its token budget mid-call is hung up by the gate: the peer connection disconnects and the data channel closes. Ephemeral client secrets (`/v1/realtime/client_secrets`) are refused with 403 because they would bypass metering. See the [Realtime guide](https://portal.gate-ai.net/docs/realtime).
+
 #### `authorizationHeaders()`
 
 Generates authorization headers without making a request.
@@ -406,7 +432,7 @@ window's total budget), exposed as `response.quotaStatus`:
 
 ```kotlin
 val response = client.performProxyRequest(
-    path = "openai/chat/completions",
+    path = "v1/chat/completions",
     method = HttpMethod.POST,
     body = requestBody.toByteArray(),
     additionalHeaders = mapOf("Content-Type" to "application/json")

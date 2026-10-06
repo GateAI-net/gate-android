@@ -36,14 +36,14 @@ The Gate/AI Android SDK is now **fully implemented** with complete feature parit
 ```kotlin
 // Simple headers-only approach
 val headers = client.authorizationHeaders(
-    path = "openai/chat/completions",
+    path = "v1/chat/completions",
     method = HttpMethod.POST,
     nonce = null // optional DPoP nonce for retry
 )
 
 // Complete request with automatic nonce retry
 val response = client.performProxyRequest(
-    path = "openai/chat/completions",
+    path = "v1/chat/completions",
     method = HttpMethod.POST,
     body = requestBody.toByteArray(),
     additionalHeaders = mapOf("Content-Type" to "application/json")
