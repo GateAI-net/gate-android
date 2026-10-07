@@ -311,14 +311,14 @@ suspend fun performProxyRequest(
 
 #### `createRealtimeCall()`
 
-Starts an OpenAI Realtime WebRTC call through the gate. Your app creates the peer connection and SDP offer with a WebRTC library of your choice; the gate exchanges it for OpenAI's answer with your provider key, and audio then flows directly between the device and OpenAI while the gate meters each model turn and applies your usage limits for the whole call.
+Starts an OpenAI Realtime session. Follow OpenAI's WebRTC guide with one change: instead of fetching an ephemeral key and posting your SDP offer to OpenAI yourself, call `createRealtimeCall`. It takes the offer and your session configuration and returns the SDP answer to apply to the peer connection. Use whichever WebRTC library you already use.
 
 ```kotlin
 suspend fun GateAIClient.createRealtimeCall(
     offerSdp: String,
     sessionJson: String,
     additionalHeaders: Map<String, String> = emptyMap()
-): RealtimeCallAnswer // sdp + callId ("rtc_…", how the call appears in your logs)
+): RealtimeCallAnswer // sdp + callId ("rtc_…", how the session appears in your logs)
 ```
 
 ```kotlin
@@ -333,7 +333,7 @@ peerConnection.setRemoteDescription(
 )
 ```
 
-A device that exhausts its token budget mid-call is hung up by the gate: the peer connection disconnects and the data channel closes. Ephemeral client secrets (`/v1/realtime/client_secrets`) are refused with 403 because they would bypass metering. See the [Realtime guide](https://portal.gate-ai.net/docs/realtime).
+The gate meters every model response and applies your usage limits for the whole session. If a device's token budget runs out mid-session the gate ends it: the peer connection disconnects and the data channel closes, and the next `createRealtimeCall` returns a 429 with the quota details. Ephemeral client secrets (`/v1/realtime/client_secrets`) are not used through a gate and are refused with 403. See the [Realtime guide](https://portal.gate-ai.net/docs/realtime).
 
 #### `authorizationHeaders()`
 
