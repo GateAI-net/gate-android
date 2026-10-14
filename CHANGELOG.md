@@ -5,7 +5,7 @@ All notable changes to the Gate/AI Android SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - Unreleased
+## [1.2.0] - 2026-10-14
 
 ### Added
 - **OpenAI Realtime.** `client.createRealtimeCall(offerSdp, sessionJson)` starts a Realtime session through the gate: it exchanges your WebRTC SDP offer for OpenAI's answer and returns the call ID. The gate meters every model response and applies usage limits for the whole session. Bring your own WebRTC library.
